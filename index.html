@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Success Coach Survey Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1927;
+    --surface2: #242236;
+    --accent: #7c6af7;
+    --accent2: #f7a072;
+    --accent3: #5ecfb1;
+    --text: #fffffe;
+    --muted: #a7a9be;
+    --border: rgba(124,106,247,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  header {
+    padding: 48px 48px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .header-left h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fffffe 0%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header-left p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 6px;
+    font-weight: 300;
+  }
+
+  .badge {
+    background: var(--accent);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  /* Nav tabs */
+  .nav {
+    display: flex;
+    gap: 4px;
+    padding: 24px 48px 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+
+  .nav-tab {
+    padding: 10px 18px;
+    border-radius: 8px 8px 0 0;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    position: relative;
+    bottom: -1px;
+  }
+
+  .nav-tab:hover { color: var(--text); background: var(--surface); }
+
+  .nav-tab.active {
+    background: var(--surface);
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-bottom-color: var(--surface);
+  }
+
+  /* Main layout */
+  main { padding: 40px 48px; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* Demo grid */
+  .demo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+  }
+
+  .card h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 15px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-style: italic;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 200px;
+  }
+
+  /* Question sections */
+  .q-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 32px;
+  }
+
+  .q-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .q-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: var(--text);
+    line-height: 1.3;
+    max-width: 600px;
+  }
+
+  .demo-filter {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .filter-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .q-chart-area {
+    position: relative;
+    height: 320px;
+  }
+
+  .q-chart-area.tall { height: 400px; }
+
+  /* Breakdown view */
+  .breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .breakdown-card {
+    background: var(--surface2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .breakdown-card h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 12px;
+  }
+
+  .breakdown-chart-wrap {
+    position: relative;
+    height: 180px;
+  }
+
+  /* Color palette */
+  .palette {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  .palette-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .palette-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    header, .nav, main { padding-left: 20px; padding-right: 20px; }
+    .q-chart-area { height: 260px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Success Coach Survey<br>Dashboard</h1>
+    <p>Monroe Community College · Organizational Behavior Final Project · 2026</p>
+  </div>
+  <span class="badge">n = 236</span>
+</header>
+
+<nav class="nav">
+  <button class="nav-tab active" onclick="showSection('demographics')">Demographics</button>
+  <button class="nav-tab" onclick="showSection('q1')">Awareness</button>
+  <button class="nav-tab" onclick="showSection('q2')">How They Learned</button>
+  <button class="nav-tab" onclick="showSection('q3')">Clarity</button>
+  <button class="nav-tab" onclick="showSection('q4')">Meetings</button>
+  <button class="nav-tab" onclick="showSection('q5')">Barriers</button>
+  <button class="nav-tab" onclick="showSection('q6')">Motivators</button>
+</nav>
+
+<main>
+
+<!-- DEMOGRAPHICS -->
+<div id="demographics" class="section active">
+  <div class="demo-grid">
+    <div class="card">
+      <h3>Gender</h3>
+      <div class="chart-wrap"><canvas id="demo-gender"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Semester</h3>
+      <div class="chart-wrap"><canvas id="demo-semester"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Age</h3>
+      <div class="chart-wrap"><canvas id="demo-age"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Major</h3>
+      <div class="chart-wrap"><canvas id="demo-major"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- Q1: AWARENESS -->
+<div id="q1" class="section">
+  <div class="q-section">
+    <div class="q-header">
+      <div class="q-title">Which statement best describes your awareness of the success coaching service?</div>
+      <div class="demo-filter">
+        <button class="filter-btn active" onclick="switchFilter('q1','overall',this)">Overall</button>
+        <button class="filter-btn" onclick="switchFilter('q1','Gender',this)">Gender</button>
+        <button class="filter-btn" onclick="switchFilter('q1','Semester',this)">Semester</button>
+        <button class="filter-btn" onclick="switchFilter('q1','Age',this)">Age</button>
+        <button class="filter-btn" onclick="switchFilter('q1','Major',this)">Major</button>
+      </div>
+    </div>
+    <div id="q1-overall-view">
+      <div class="q-chart-area"><canvas id="q1-overall-chart"></canvas></div>
+    </div>
+    <div id="q1-breakdown-view" style="display:none">
+      <div class="breakdown-grid" id="q1-breakdown-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Q2: HOW THEY LEARNED -->
+<div id="q2" class="section">
+  <div class="q-section">
+    <div class="q-header">
+      <div class="q-title">Where did you first learn about the success coaching service?</div>
+      <div class="demo-filter">
+        <button class="filter-btn active" onclick="switchFilter('q2','overall',this)">Overall</button>
+        <button class="filter-btn" onclick="switchFilter('q2','Gender',this)">Gender</button>
+        <button class="filter-btn" onclick="switchFilter('q2','Semester',this)">Semester</button>
+        <button class="filter-btn" onclick="switchFilter('q2','Age',this)">Age</button>
+        <button class="filter-btn" onclick="switchFilter('q2','Major',this)">Major</button>
+      </div>
+    </div>
+    <div id="q2-overall-view">
+      <div class="q-chart-area"><canvas id="q2-overall-chart"></canvas></div>
+    </div>
+    <div id="q2-breakdown-view" style="display:none">
+      <div class="breakdown-grid" id="q2-breakdown-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Q3: CLARITY -->
+<div id="q3" class="section">
+  <div class="q-section">
+    <div class="q-header">
+      <div class="q-title">How clear is it to you what a success coach can help you with?</div>
+      <div class="demo-filter">
+        <button class="filter-btn active" onclick="switchFilter('q3','overall',this)">Overall</button>
+        <button class="filter-btn" onclick="switchFilter('q3','Gender',this)">Gender</button>
+        <button class="filter-btn" onclick="switchFilter('q3','Semester',this)">Semester</button>
+        <button class="filter-btn" onclick="switchFilter('q3','Age',this)">Age</button>
+        <button class="filter-btn" onclick="switchFilter('q3','Major',this)">Major</button>
+      </div>
+    </div>
+    <div id="q3-overall-view">
+      <div class="q-chart-area"><canvas id="q3-overall-chart"></canvas></div>
+    </div>
+    <div id="q3-breakdown-view" style="display:none">
+      <div class="breakdown-grid" id="q3-breakdown-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Q4: MEETINGS -->
+<div id="q4" class="section">
+  <div class="q-section">
+    <div class="q-header">
+      <div class="q-title">How many times have you met with a success coach?</div>
+      <div class="demo-filter">
+        <button class="filter-btn active" onclick="switchFilter('q4','overall',this)">Overall</button>
+        <button class="filter-btn" onclick="switchFilter('q4','Gender',this)">Gender</button>
+        <button class="filter-btn" onclick="switchFilter('q4','Semester',this)">Semester</button>
+        <button class="filter-btn" onclick="switchFilter('q4','Age',this)">Age</button>
+        <button class="filter-btn" onclick="switchFilter('q4','Major',this)">Major</button>
+      </div>
+    </div>
+    <div id="q4-overall-view">
+      <div class="q-chart-area"><canvas id="q4-overall-chart"></canvas></div>
+    </div>
+    <div id="q4-breakdown-view" style="display:none">
+      <div class="breakdown-grid" id="q4-breakdown-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Q5: BARRIERS -->
+<div id="q5" class="section">
+  <div class="q-section">
+    <div class="q-header">
+      <div class="q-title">Which factors prevent you from using your success coach?</div>
+      <div class="demo-filter">
+        <button class="filter-btn active" onclick="switchFilter('q5','overall',this)">Overall</button>
+        <button class="filter-btn" onclick="switchFilter('q5','Gender',this)">Gender</button>
+        <button class="filter-btn" onclick="switchFilter('q5','Semester',this)">Semester</button>
+        <button class="filter-btn" onclick="switchFilter('q5','Age',this)">Age</button>
+        <button class="filter-btn" onclick="switchFilter('q5','Major',this)">Major</button>
+      </div>
+    </div>
+    <div id="q5-overall-view">
+      <div class="q-chart-area tall"><canvas id="q5-overall-chart"></canvas></div>
+    </div>
+    <div id="q5-breakdown-view" style="display:none">
+      <div class="breakdown-grid" id="q5-breakdown-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Q6: MOTIVATORS -->
+<div id="q6" class="section">
+  <div class="q-section">
+    <div class="q-header">
+      <div class="q-title">What would make you more likely to meet with a success coach?</div>
+      <div class="demo-filter">
+        <button class="filter-btn active" onclick="switchFilter('q6','overall',this)">Overall</button>
+        <button class="filter-btn" onclick="switchFilter('q6','Gender',this)">Gender</button>
+        <button class="filter-btn" onclick="switchFilter('q6','Semester',this)">Semester</button>
+        <button class="filter-btn" onclick="switchFilter('q6','Age',this)">Age</button>
+        <button class="filter-btn" onclick="switchFilter('q6','Major',this)">Major</button>
+      </div>
+    </div>
+    <div id="q6-overall-view">
+      <div class="q-chart-area"><canvas id="q6-overall-chart"></canvas></div>
+    </div>
+    <div id="q6-breakdown-view" style="display:none">
+      <div class="breakdown-grid" id="q6-breakdown-grid"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const DATA = {"survey":{"Which statement best describes your awareness of the success coaching service?":{"overall":{"I am aware of the service and know how to contact my success coach.":163,"I have heard of the service but am unsure what it does.":30,"I am aware of the service but don\u2019t know how to contact my success coach.":29,"I am not aware of the service at all.":14},"breakdowns":{"Gender":{"Female":{"I am aware of the service and know how to contact my success coach.":102,"I have heard of the service but am unsure what it does.":16,"I am aware of the service but don\u2019t know how to contact my success coach.":13,"I am not aware of the service at all.":8},"Male":{"I am aware of the service and know how to contact my success coach.":53,"I am aware of the service but don\u2019t know how to contact my success coach.":14,"I have heard of the service but am unsure what it does.":10,"I am not aware of the service at all.":6},"Other / Prefer not to say":{"I am aware of the service and know how to contact my success coach.":8,"I have heard of the service but am unsure what it does.":4,"I am aware of the service but don\u2019t know how to contact my success coach.":2}},"Semester":{"First semester":{"I am aware of the service and know how to contact my success coach.":18,"I am aware of the service but don\u2019t know how to contact my success coach.":4,"I am not aware of the service at all.":3,"I have heard of the service but am unsure what it does.":2},"Fourth semester or above":{"I am aware of the service and know how to contact my success coach.":47,"I am aware of the service but don\u2019t know how to contact my success coach.":12,"I have heard of the service but am unsure what it does.":10,"I am not aware of the service at all.":4},"Second semester":{"I am aware of the service and know how to contact my success coach.":79,"I have heard of the service but am unsure what it does.":15,"I am aware of the service but don\u2019t know how to contact my success coach.":10,"I am not aware of the service at all.":4},"Third semester":{"I am aware of the service and know how to contact my success coach.":19,"I am aware of the service but don\u2019t know how to contact my success coach.":3,"I have heard of the service but am unsure what it does.":3,"I am not aware of the service at all.":3}},"Age":{"20 or under":{"I am aware of the service and know how to contact my success coach.":108,"I have heard of the service but am unsure what it does.":20,"I am aware of the service but don\u2019t know how to contact my success coach.":14,"I am not aware of the service at all.":9},"21-24":{"I am aware of the service and know how to contact my success coach.":22,"I am aware of the service but don\u2019t know how to contact my success coach.":9,"I have heard of the service but am unsure what it does.":6,"I am not aware of the service at all.":1},"25-29":{"I am aware of the service and know how to contact my success coach.":16,"I am not aware of the service at all.":3,"I am aware of the service but don\u2019t know how to contact my success coach.":2,"I have heard of the service but am unsure what it does.":1},"30 or above":{"I am aware of the service and know how to contact my success coach.":17,"I am aware of the service but don\u2019t know how to contact my success coach.":4,"I have heard of the service but am unsure what it does.":3,"I am not aware of the service at all.":1}},"Major":{"Business":{"I am aware of the service and know how to contact my success coach.":31,"I am aware of the service but don\u2019t know how to contact my success coach.":5,"I have heard of the service but am unsure what it does.":3,"I am not aware of the service at all.":2},"Health & Medical Careers":{"I am aware of the service and know how to contact my success coach.":39,"I am aware of the service but don\u2019t know how to contact my success coach.":9,"I have heard of the service but am unsure what it does.":7,"I am not aware of the service at all.":4},"Liberal Arts & Social Sciences":{"I am aware of the service and know how to contact my success coach.":25,"I have heard of the service but am unsure what it does.":7,"I am aware of the service but don\u2019t know how to contact my success coach.":6},"Other":{"I am aware of the service and know how to contact my success coach.":36,"I have heard of the service but am unsure what it does.":9,"I am aware of the service but don\u2019t know how to contact my success coach.":5,"I am not aware of the service at all.":4},"Psychology":{"I am aware of the service and know how to contact my success coach.":5},"STEM (Science, Technology, Engineering, Math)":{"I am aware of the service and know how to contact my success coach.":27,"I am not aware of the service at all.":4,"I have heard of the service but am unsure what it does.":4,"I am aware of the service but don\u2019t know how to contact my success coach.":4}}}},"Where did you first learn about the success coaching service?":{"overall":{"Student email or notifications":69,"Academic advisor or instructor":58,"New student orientation":48,"I don\u2019t know":26,"Campus website or student portal":23,"Family or friend":12},"breakdowns":{"Gender":{"Female":{"Student email or notifications":45,"Academic advisor or instructor":30,"New student orientation":26,"I don\u2019t know":15,"Campus website or student portal":14,"Family or friend":9},"Male":{"New student orientation":22,"Academic advisor or instructor":21,"Student email or notifications":20,"I don\u2019t know":11,"Campus website or student portal":6,"Family or friend":3},"Other / Prefer not to say":{"Academic advisor or instructor":7,"Student email or notifications":4,"Campus website or student portal":3}},"Semester":{"First semester":{"New student orientation":11,"Academic advisor or instructor":7,"Campus website or student portal":4,"Student email or notifications":3,"Family or friend":1,"I don\u2019t know":1},"Fourth semester or above":{"Student email or notifications":31,"Academic advisor or instructor":18,"I don\u2019t know":9,"New student orientation":6,"Campus website or student portal":6,"Family or friend":3},"Second semester":{"Academic advisor or instructor":28,"Student email or notifications":27,"New student orientation":25,"Campus website or student portal":13,"I don\u2019t know":8,"Family or friend":7},"Third semester":{"Student email or notifications":8,"I don\u2019t know":8,"New student orientation":6,"Academic advisor or instructor":5,"Family or friend":1}},"Age":{"20 or under":{"Academic advisor or instructor":37,"Student email or notifications":36,"New student orientation":33,"I don\u2019t know":19,"Campus website or student portal":19,"Family or friend":7},"21-24":{"Student email or notifications":14,"New student orientation":10,"Academic advisor or instructor":9,"Campus website or student portal":3,"Family or friend":1,"I don\u2019t know":1},"25-29":{"Student email or notifications":9,"Academic advisor or instructor":6,"I don\u2019t know":3,"New student orientation":3,"Family or friend":1},"30 or above":{"Student email or notifications":10,"Academic advisor or instructor":6,"Family or friend":3,"I don\u2019t know":3,"New student orientation":2,"Campus website or student portal":1}},"Major":{"Business":{"Student email or notifications":12,"Academic advisor or instructor":12,"New student orientation":6,"I don\u2019t know":5,"Campus website or student portal":5,"Family or friend":1},"Health & Medical Careers":{"Student email or notifications":15,"New student orientation":14,"Academic advisor or instructor":13,"Campus website or student portal":7,"I don\u2019t know":6,"Family or friend":4},"Liberal Arts & Social Sciences":{"Student email or notifications":10,"New student orientation":10,"Academic advisor or instructor":10,"Family or friend":3,"Campus website or student portal":3,"I don\u2019t know":2},"Other":{"Student email or notifications":20,"Academic advisor or instructor":10,"New student orientation":10,"I don\u2019t know":10,"Family or friend":2,"Campus website or student portal":2},"Psychology":{"New student orientation":2,"Student email or notifications":2,"Academic advisor or instructor":1},"STEM (Science, Technology, Engineering, Math)":{"Academic advisor or instructor":12,"Student email or notifications":10,"Campus website or student portal":6,"New student orientation":6,"I don\u2019t know":3,"Family or friend":2}}}},"How clear is it to you what a success coach can help you with?":{"overall":{"Somewhat clear":110,"Very clear":91,"Not very clear":22,"Not at all clear":13},"breakdowns":{"Gender":{"Female":{"Somewhat clear":64,"Very clear":53,"Not very clear":12,"Not at all clear":10},"Male":{"Somewhat clear":36,"Very clear":36,"Not very clear":8,"Not at all clear":3},"Other / Prefer not to say":{"Somewhat clear":10,"Very clear":2,"Not very clear":2}},"Semester":{"First semester":{"Very clear":14,"Somewhat clear":10,"Not at all clear":2,"Not very clear":1},"Fourth semester or above":{"Somewhat clear":43,"Very clear":19,"Not very clear":6,"Not at all clear":5},"Second semester":{"Somewhat clear":47,"Very clear":46,"Not very clear":12,"Not at all clear":3},"Third semester":{"Very clear":12,"Somewhat clear":10,"Not very clear":3,"Not at all clear":3}},"Age":{"20 or under":{"Somewhat clear":73,"Very clear":61,"Not very clear":11,"Not at all clear":6},"21-24":{"Somewhat clear":18,"Very clear":12,"Not very clear":6,"Not at all clear":2},"25-29":{"Very clear":10,"Somewhat clear":8,"Not at all clear":3,"Not very clear":1},"30 or above":{"Somewhat clear":11,"Very clear":8,"Not very clear":4,"Not at all clear":2}},"Major":{"Business":{"Somewhat clear":18,"Very clear":14,"Not very clear":5,"Not at all clear":4},"Health & Medical Careers":{"Somewhat clear":27,"Very clear":22,"Not very clear":6,"Not at all clear":4},"Liberal Arts & Social Sciences":{"Very clear":17,"Somewhat clear":16,"Not very clear":4,"Not at all clear":1},"Other":{"Somewhat clear":25,"Very clear":22,"Not at all clear":4,"Not very clear":3},"Psychology":{"Somewhat clear":3,"Very clear":2},"STEM (Science, Technology, Engineering, Math)":{"Somewhat clear":21,"Very clear":14,"Not very clear":4}}}},"How many times have you met with a success coach?":{"overall":{"2-4 times":95,"Never":82,"Once":49,"5+ times":10},"breakdowns":{"Gender":{"Female":{"2-4 times":63,"Never":39,"Once":31,"5+ times":6},"Male":{"Never":38,"2-4 times":26,"Once":15,"5+ times":4},"Other / Prefer not to say":{"2-4 times":6,"Never":5,"Once":3}},"Semester":{"First semester":{"2-4 times":10,"Once":9,"Never":8},"Fourth semester or above":{"Never":32,"2-4 times":25,"Once":11,"5+ times":5},"Second semester":{"2-4 times":57,"Never":27,"Once":20,"5+ times":4},"Third semester":{"Never":15,"Once":9,"2-4 times":3,"5+ times":1}},"Age":{"20 or under":{"2-4 times":64,"Never":48,"Once":32,"5+ times":7},"21-24":{"Never":15,"2-4 times":12,"Once":9,"5+ times":2},"25-29":{"Never":11,"2-4 times":9,"Once":1,"5+ times":1},"30 or above":{"2-4 times":10,"Never":8,"Once":7}},"Major":{"Business":{"Never":17,"Once":11,"2-4 times":11,"5+ times":2},"Health & Medical Careers":{"2-4 times":31,"Never":17,"Once":10,"5+ times":1},"Liberal Arts & Social Sciences":{"2-4 times":17,"Never":10,"Once":10,"5+ times":1},"Other":{"Never":24,"2-4 times":18,"Once":9,"5+ times":3},"Psychology":{"2-4 times":2,"Never":1,"Once":1,"5+ times":1},"STEM (Science, Technology, Engineering, Math)":{"2-4 times":16,"Never":13,"Once":8,"5+ times":2}}}},"Which factors prevent you from using your success coach? (Select all that apply)":{"overall":{"I don\u2019t perceive a need right now":131,"Doubt about the coach\u2019s impact":45,"Office availability conflicts":43,"Not knowing their purpose":38,"Not knowing how to contact them":31,"Privacy or confidentiality concerns":13},"breakdowns":{"Gender":{"Female":{"I don\u2019t perceive a need right now":72,"Office availability conflicts":31,"Doubt about the coach\u2019s impact":26,"Not knowing their purpose":22,"Not knowing how to contact them":18,"Privacy or confidentiality concerns":6},"Male":{"I don\u2019t perceive a need right now":51,"Doubt about the coach\u2019s impact":13,"Not knowing their purpose":11,"Office availability conflicts":9,"Not knowing how to contact them":9,"Privacy or confidentiality concerns":5},"Other / Prefer not to say":{"I don\u2019t perceive a need right now":8,"Doubt about the coach\u2019s impact":6,"Not knowing their purpose":5,"Not knowing how to contact them":4,"Office availability conflicts":3,"Privacy or confidentiality concerns":2}},"Semester":{"First semester":{"I don\u2019t perceive a need right now":14,"Office availability conflicts":6,"Privacy or confidentiality concerns":4,"Not knowing their purpose":4,"Doubt about the coach\u2019s impact":4,"Not knowing how to contact them":3},"Fourth semester or above":{"I don\u2019t perceive a need right now":45,"Doubt about the coach\u2019s impact":18,"Not knowing their purpose":13,"Office availability conflicts":12,"Not knowing how to contact them":11,"Privacy or confidentiality concerns":4},"Second semester":{"I don\u2019t perceive a need right now":60,"Office availability conflicts":21,"Doubt about the coach\u2019s impact":20,"Not knowing their purpose":13,"Not knowing how to contact them":12,"Privacy or confidentiality concerns":4},"Third semester":{"I don\u2019t perceive a need right now":12,"Not knowing their purpose":8,"Not knowing how to contact them":5,"Office availability conflicts":4,"Doubt about the coach\u2019s impact":3,"Privacy or confidentiality concerns":1}},"Age":{"20 or under":{"I don\u2019t perceive a need right now":79,"Office availability conflicts":31,"Not knowing their purpose":29,"Doubt about the coach\u2019s impact":25,"Not knowing how to contact them":20,"Privacy or confidentiality concerns":8},"21-24":{"I don\u2019t perceive a need right now":23,"Doubt about the coach\u2019s impact":10,"Not knowing how to contact them":7,"Office availability conflicts":7,"Privacy or confidentiality concerns":5,"Not knowing their purpose":4},"25-29":{"I don\u2019t perceive a need right now":15,"Doubt about the coach\u2019s impact":6,"Not knowing their purpose":2,"Office availability conflicts":2,"Not knowing how to contact them":1},"30 or above":{"I don\u2019t perceive a need right now":14,"Doubt about the coach\u2019s impact":4,"Not knowing how to contact them":3,"Office availability conflicts":3,"Not knowing their purpose":3}},"Major":{"Business":{"I don\u2019t perceive a need right now":24,"Doubt about the coach\u2019s impact":11,"Not knowing their purpose":9,"Office availability conflicts":7,"Not knowing how to contact them":3},"Health & Medical Careers":{"I don\u2019t perceive a need right now":30,"Doubt about the coach\u2019s impact":10,"Office availability conflicts":9,"Not knowing how to contact them":8,"Not knowing their purpose":7,"Privacy or confidentiality concerns":4},"Liberal Arts & Social Sciences":{"I don\u2019t perceive a need right now":17,"Office availability conflicts":10,"Not knowing how to contact them":9,"Doubt about the coach\u2019s impact":8,"Not knowing their purpose":8,"Privacy or confidentiality concerns":5},"Other":{"I don\u2019t perceive a need right now":33,"Office availability conflicts":10,"Doubt about the coach\u2019s impact":8,"Not knowing how to contact them":6,"Not knowing their purpose":5,"Privacy or confidentiality concerns":1},"Psychology":{"I don\u2019t perceive a need right now":2,"Office availability conflicts":2,"Doubt about the coach\u2019s impact":2},"STEM (Science, Technology, Engineering, Math)":{"I don\u2019t perceive a need right now":25,"Not knowing their purpose":9,"Doubt about the coach\u2019s impact":6,"Not knowing how to contact them":5,"Office availability conflicts":5,"Privacy or confidentiality concerns":3}}}},"What would make you more likely to meet with a success coach?":{"overall":{"Required first meeting upon starting at MCC":83,"Better explanation of benefits":66,"Easier scheduling":44,"More Reminders":21,"Other":21},"breakdowns":{"Gender":{"Female":{"Required first meeting upon starting at MCC":50,"Better explanation of benefits":41,"Easier scheduling":25,"More Reminders":13,"Other":9},"Male":{"Required first meeting upon starting at MCC":28,"Easier scheduling":18,"Better explanation of benefits":17,"More Reminders":8,"Other":12},"Other / Prefer not to say":{"Required first meeting upon starting at MCC":5,"Better explanation of benefits":8,"Easier scheduling":1,"Other":0}},"Semester":{"First semester":{"Required first meeting upon starting at MCC":8,"Better explanation of benefits":6,"Easier scheduling":8,"More Reminders":4,"Other":1},"Fourth semester or above":{"Required first meeting upon starting at MCC":27,"Better explanation of benefits":25,"Easier scheduling":14,"More Reminders":1,"Other":6},"Second semester":{"Required first meeting upon starting at MCC":41,"Better explanation of benefits":26,"Easier scheduling":20,"More Reminders":10,"Other":10},"Third semester":{"Required first meeting upon starting at MCC":7,"Better explanation of benefits":9,"Easier scheduling":2,"More Reminders":6,"Other":4}},"Age":{"20 or under":{"Required first meeting upon starting at MCC":51,"Better explanation of benefits":37,"Easier scheduling":32,"More Reminders":17,"Other":14},"21-24":{"Required first meeting upon starting at MCC":15,"Better explanation of benefits":12,"Easier scheduling":7,"More Reminders":2,"Other":2},"25-29":{"Required first meeting upon starting at MCC":9,"Better explanation of benefits":8,"Easier scheduling":2,"More Reminders":1,"Other":2},"30 or above":{"Required first meeting upon starting at MCC":8,"Better explanation of benefits":9,"Easier scheduling":3,"More Reminders":1,"Other":4}},"Major":{"Business":{"Required first meeting upon starting at MCC":14,"Better explanation of benefits":10,"Easier scheduling":11,"More Reminders":3,"Other":3},"Health & Medical Careers":{"Required first meeting upon starting at MCC":22,"Better explanation of benefits":15,"Easier scheduling":9,"More Reminders":9,"Other":4},"Liberal Arts & Social Sciences":{"Required first meeting upon starting at MCC":13,"Better explanation of benefits":14,"Easier scheduling":8,"More Reminders":2,"Other":1},"Other":{"Required first meeting upon starting at MCC":17,"Better explanation of benefits":16,"Easier scheduling":7,"More Reminders":3,"Other":11},"Psychology":{"Required first meeting upon starting at MCC":1,"Better explanation of benefits":1,"Easier scheduling":2,"More Reminders":1,"Other":0},"STEM (Science, Technology, Engineering, Math)":{"Required first meeting upon starting at MCC":16,"Better explanation of benefits":10,"Easier scheduling":7,"More Reminders":3,"Other":3}}}}},"demos":{"Gender":{"Female":139,"Male":83,"Other / Prefer not to say":14},"Semester":{"Second semester":108,"Fourth semester or above":73,"Third semester":28,"First semester":27},"Age":{"20 or under":151,"21-24":38,"30 or above":25,"25-29":22},"Major":{"Health & Medical Careers":59,"Other":54,"Business":41,"STEM (Science, Technology, Engineering, Math)":39,"Liberal Arts & Social Sciences":38,"Psychology":5}},"n":236};
+
+const COLORS = [
+  '#7c6af7','#5ecfb1','#f7a072','#f7d072','#e06cc5','#6ab7f7',
+  '#a8f77c','#f76c6c','#c06af7','#72f7e0'
+];
+
+const CHART_DEFAULTS = {
+  plugins: {
+    legend: {
+      labels: { color: '#a7a9be', font: { family: 'DM Sans', size: 11 }, boxWidth: 12, padding: 12 }
+    },
+    tooltip: {
+      backgroundColor: '#1a1927',
+      borderColor: 'rgba(124,106,247,0.3)',
+      borderWidth: 1,
+      titleColor: '#fffffe',
+      bodyColor: '#a7a9be',
+      padding: 12,
+      callbacks: {
+        label: (ctx) => {
+          const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+          const pct = total > 0 ? Math.round(ctx.parsed * 100 / total) : 0;
+          return ` ${ctx.parsed} (${pct}%)`;
+        }
+      }
+    }
+  },
+  scales: {
+    x: { ticks: { color: '#a7a9be', font: { family: 'DM Sans', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+    y: { ticks: { color: '#a7a9be', font: { family: 'DM Sans', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+  }
+};
+
+function shortenLabel(lbl, max=30) {
+  if (lbl.length <= max) return lbl;
+  return lbl.substring(0, max) + '…';
+}
+
+function makeBarChart(canvasId, labels, values, color=null, horizontal=false) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  const bg = color ? color : values.map((_,i) => COLORS[i % COLORS.length]);
+  const cfg = {
+    type: 'bar',
+    data: {
+      labels: labels.map(l => shortenLabel(l, horizontal ? 40 : 20)),
+      datasets: [{ data: values, backgroundColor: bg, borderRadius: 6, borderSkipped: false }]
+    },
+    options: {
+      ...JSON.parse(JSON.stringify(CHART_DEFAULTS)),
+      indexAxis: horizontal ? 'y' : 'x',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        ...JSON.parse(JSON.stringify(CHART_DEFAULTS.plugins)),
+        legend: { display: false }
+      }
+    }
+  };
+  return new Chart(ctx, cfg);
+}
+
+function makePieChart(canvasId, labels, values) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  return new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels.map(l => shortenLabel(l, 35)),
+      datasets: [{ data: values, backgroundColor: COLORS.slice(0, values.length), borderWidth: 2, borderColor: '#1a1927' }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: {
+        legend: { ...JSON.parse(JSON.stringify(CHART_DEFAULTS.plugins.legend)), position: 'bottom' },
+        tooltip: { ...JSON.parse(JSON.stringify(CHART_DEFAULTS.plugins.tooltip)) }
+      }
+    }
+  });
+}
+
+function makeGroupedChart(canvasId, groups, allLabels, data) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  const datasets = allLabels.map((lbl, i) => ({
+    label: shortenLabel(lbl, 30),
+    data: groups.map(g => data[g]?.[lbl] || 0),
+    backgroundColor: COLORS[i % COLORS.length],
+    borderRadius: 4
+  }));
+  return new Chart(ctx, {
+    type: 'bar',
+    data: { labels: groups.map(g => shortenLabel(g, 20)), datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { ...JSON.parse(JSON.stringify(CHART_DEFAULTS.plugins.legend)) },
+        tooltip: {
+          ...JSON.parse(JSON.stringify(CHART_DEFAULTS.plugins.tooltip)),
+          callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y}` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#a7a9be', font: { family: 'DM Sans', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#a7a9be', font: { family: 'DM Sans', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+// State
+const activeCharts = {};
+const activeFilters = {};
+
+function destroyChart(id) {
+  if (activeCharts[id]) { activeCharts[id].destroy(); delete activeCharts[id]; }
+}
+
+// Build breakdown small charts
+function buildBreakdownGrid(qKey, demoKey, gridId) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  const surveyKeys = Object.keys(DATA.survey);
+  const qData = DATA.survey[surveyKeys[qKey]];
+  const breakdownData = qData.breakdowns[demoKey];
+  const groups = Object.keys(breakdownData);
+
+  // Get all unique labels across groups
+  const allLabels = [...new Set(groups.flatMap(g => Object.keys(breakdownData[g])))];
+
+  groups.forEach(grp => {
+    const div = document.createElement('div');
+    div.className = 'breakdown-card';
+    const h4 = document.createElement('h4');
+    h4.textContent = grp;
+    div.appendChild(h4);
+    const wrap = document.createElement('div');
+    wrap.className = 'breakdown-chart-wrap';
+    const canvas = document.createElement('canvas');
+    const cid = `bkd-${qKey}-${demoKey}-${grp}`.replace(/[^a-z0-9-]/gi, '_');
+    canvas.id = cid;
+    wrap.appendChild(canvas);
+    div.appendChild(wrap);
+    grid.appendChild(div);
+
+    const vals = allLabels.map(l => breakdownData[grp]?.[l] || 0);
+    const chart = makePieChart(cid, allLabels, vals);
+    if (chart) activeCharts[cid] = chart;
+  });
+}
+
+function switchFilter(qId, filterKey, btn) {
+  // Update button states
+  btn.closest('.demo-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const qKeyMap = { q1: 0, q2: 1, q3: 2, q4: 3, q5: 4, q6: 5 };
+  const qIdx = qKeyMap[qId];
+  const surveyKeys = Object.keys(DATA.survey);
+  const qData = DATA.survey[surveyKeys[qIdx]];
+
+  const overallView = document.getElementById(`${qId}-overall-view`);
+  const breakdownView = document.getElementById(`${qId}-breakdown-view`);
+  const grid = document.getElementById(`${qId}-breakdown-grid`);
+
+  if (filterKey === 'overall') {
+    overallView.style.display = 'block';
+    breakdownView.style.display = 'none';
+    // Redraw overall chart
+    const cid = `${qId}-overall-chart`;
+    destroyChart(cid);
+    const labels = Object.keys(qData.overall);
+    const values = Object.values(qData.overall);
+    const isHorizontal = labels.some(l => l.length > 25);
+    activeCharts[cid] = makeBarChart(cid, labels, values, null, isHorizontal);
+  } else {
+    overallView.style.display = 'none';
+    breakdownView.style.display = 'block';
+    // Clear old breakdown charts
+    if (grid) {
+      grid.querySelectorAll('canvas').forEach(c => destroyChart(c.id));
+    }
+    buildBreakdownGrid(qIdx, filterKey, `${qId}-breakdown-grid`);
+  }
+}
+
+// Initialize all charts
+window.addEventListener('DOMContentLoaded', () => {
+  // Demographics
+  const demos = DATA.demos;
+
+  activeCharts['demo-gender'] = makePieChart('demo-gender', Object.keys(demos.Gender), Object.values(demos.Gender));
+  activeCharts['demo-semester'] = makePieChart('demo-semester', Object.keys(demos.Semester), Object.values(demos.Semester));
+  activeCharts['demo-age'] = makePieChart('demo-age', Object.keys(demos.Age), Object.values(demos.Age));
+  activeCharts['demo-major'] = makePieChart('demo-major', Object.keys(demos.Major), Object.values(demos.Major));
+
+  // Survey overall charts
+  const surveyKeys = Object.keys(DATA.survey);
+  const qIds = ['q1','q2','q3','q4','q5','q6'];
+
+  qIds.forEach((qId, i) => {
+    const qData = DATA.survey[surveyKeys[i]];
+    const labels = Object.keys(qData.overall);
+    const values = Object.values(qData.overall);
+    const isHorizontal = labels.some(l => l.length > 25);
+    const cid = `${qId}-overall-chart`;
+    activeCharts[cid] = makeBarChart(cid, labels, values, null, isHorizontal);
+  });
+});
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
